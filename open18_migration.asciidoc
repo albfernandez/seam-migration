@@ -2,7 +2,7 @@
 
 This tutorial will walk through converting the Open18 application from Dan
 Allen's [underline]#Seam in Action# from Seam 2 to Java EE 6. It will be as plain Java EE 6
-as possible. The application will also be upgraded to RichFaces 4.1 (the current release at time
+as possible. The application will also be upgraded to RichFaces 4.3 (the current release at time
 of writing).
 
 == Migrate to Maven ==
@@ -70,8 +70,7 @@ actual file
     <!-- It is easier to set versions here thar will / could be used in multiple locations. -->
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jboss.javaee6.version>2.1.0.Beta1</jboss.javaee6.version>
-        <richfaces.version>4.2.1.Final</richfaces.version>
+        <version.jboss.bom.wfk>2.6.0-redhat-1</version.jboss.bom.wfk>
     </properties>
 
     <!--
@@ -81,20 +80,13 @@ actual file
     -->
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>org.jboss.spec</groupId>
-                <artifactId>jboss-javaee6-specs-bom</artifactId>
-                <version>${jboss.javaee6.version}</version>
+             <dependency>
+                <groupId>org.jboss.bom.wfk</groupId>
+                <artifactId>jboss-javaee-6.0-with-richfaces</artifactId>
+                <version>${version.jboss.bom.wfk}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.richfaces</groupId>
-                <artifactId>richfaces-bom</artifactId>
-                <version>${richfaces.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+            </dependency> 
         </dependencies>
     </dependencyManagement>
 
@@ -226,28 +218,28 @@ safe criteria api, new mappings, and additional methods.
 
 === Metamodel Generation ===
 
-To take full advantage of type saftey, static meta model classes should be
+To take full advantage of type safety, static meta model classes should be
 created or generated. The simplest way of doing this is using an annotation
 processor such as Hibernate's JPA 2 Metamodel Generator. Additional information
 on using this annotation processor can be found in http://docs.jboss.org/hibernate/jpamodelgen/1.1/reference/en-US/html_single/[the documentation]. 
 For this migration, the annotation processor was used once and then removed from
 the pom.xml file.
 
-// TODO: should I actually go through the steps?
+// TODO: should I actually go through the steps? YES!!! just usage - insert Maven processor plugin into compiler
 
 == Migrate to Bean Validation from Hibernate Validator 3 ==
 
 Java EE 6 contains another specification which standardized validation: JSR 303
 - Bean Validation. http://hibernate.org/subprojects/validator.html[Hibernate Validator 4]
-(4.2.0 is shipped with AS7) is the reference implementation. This is a
-completely different code base and includes all new package, validations and
-ways of interacting with those validations. If the application is only using
-the annotations, these are typically a package change and at times an
-annotation change. For Course, the +@org.hibernate.validator.Length+
+(4.3.1.Final is shipped with EAP 6) is the reference implementation. This is a
+very similar code base and includes new package, validations and
+ways of interacting with those validations. 
+
+Using the new Bean Validation constraints you have to use the constraints in the javax.validation.constraints and org.hibernate.validator.constraints packages. The former contains the standardized Bean Validation constraints whereas the latter contains some Hibernate Validator specific constraints. All constraints which existed in Hibernate Validator 3 are available in Hibernate Validator 4 too. You just need to import the right class and in some cases change the name and/or type of a constraint parameter. For Course, the +@org.hibernate.validator.Length+
 validation becomes the +@javax.validation.constraints.Size+ annotation. In
 some cases, such as the GolferValidator in Open18, this can become a custom
 constraint. Information about custom constraints can be found at the
-http://docs.jboss.org/hibernate/validator/4.2/reference/en-US/html/validator-customconstraints.html[Hibernate Validator documentation].
+http://docs.jboss.org/hibernate/validator/4.3/reference/en-US/html/validator-customconstraints.html[Hibernate Validator documentation].
 
 For more information about migrating from Hibernate Validator 3, please see https://docs.jboss.org/author/display/AS71/How+do+I+migrate+my+application+from+AS5+or+AS6+to+AS7#HowdoImigratemyapplicationfromAS5orAS6toAS7-MigratetoHibernate4Validator[the migration documentation].
 
@@ -324,11 +316,11 @@ beans.xml is used
 [source, xml]
 ----
 <?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://java.sun.com/xml/ns/javaee"
+<beans xmlns="http://xmlns.jcp.org/xml/ns/javaee"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="
-              http://java.sun.com/xml/ns/javaee
-              http://docs.jboss.org/cdi/beans_1_0.xsd">
+       xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/beans_1_1.xsd"
+       version="1.1">
+       
 </beans>
 ----
 
@@ -341,13 +333,13 @@ Nearly all of the annotations that were Seam 2 based have equivalents in Java EE
 
 Because Seam components were typically not managed by the container
 (unless an EJB happened to be a Seam component, such as a SFSB or SLSB)
-all injection has handled used Seam's +@In+. As mentioned earlier, Java
+all injection has handled used Seam's +@org.jboss.seam.annotations.In+. As mentioned earlier, Java
 EE 6 has standardized Dependency Injection using JSR 330. The annotation
-now is +@javax.inject.Inject+. All of the +@In+ annotations will need
+now is +@javax.inject.Inject+. All of the +@org.jboss.seam.annotations.In+ annotations will need
 to be replaced.
 
 There is also a difference in defining what is a bean (or a component in Seam
-2). In Seam 2 all components needed to be annotated with the +@Name+
+2). In Seam 2 all components needed to be annotated with the +@org.jboss.seam.annotations.Name+
 annotation. This is no longer the case. Each class (there are some exceptions,
 please refer to JSR 299 or a CDI implementation documentation) with a no-args
 constructor is now a managed bean (not to be confused with the JSF Managed
@@ -355,8 +347,8 @@ Bean). There is, however the +@javax.inject.Named+ annotation. Its main
 purpose is to register an EL name for the bean. If the bean is not going to be
 used in an EL expression, it is not needed.
 
-The CourseComparison class has been modified below to make use of +@Inject+,
-+@ConversationScoped+, +@Named+ and also +@Produces+. More detail about these
+The CourseComparison class has been modified below to make use of +@javax.inject.Inject+,
++@javax.enterprise.inject.ConversationScoped+, +@javax.inject.Named+ and also +@javax.enterprise.inject.Produces+. More detail about these
 annotations can be found below, the JSR 299 specification,  or a CDI 
 implementation's documentation
 
@@ -442,7 +434,7 @@ public class CourseComparison implements Serializable {
 
 Seam 2 had a feature called factories which allowed a resource to be created and
 outjected. It allowed for a more custom creation than what Seam could do by
-calling the no-args constructor. CDI a similar feature called producers. There
+calling the no-args constructor. CDI has got a similar feature called producers. There
 are two big differences between factories and producers and the way both
 platforms handle proxies.
 
@@ -452,7 +444,7 @@ platforms handle proxies.
 * Factories do not support injection. With a producer, each parameter is an
   injected resource.
 
-Because of the first difference, at times can be necessary to to create a
+Because of the first difference, at times can be necessary to create a
 wrapper around the actual object desired and modify the information as needed.
 For the comparedCourses above, the list of new checked courses could be produced
 and scoped as a +@SessionScoped+ resource, but it would never change for that
@@ -492,14 +484,14 @@ public class UiProducers {
 Scopes are nothing new when coming from Seam 2. The standard scopes still exist
 when using CDI:
 
-* +@ApplicationScoped+
-* +@SessionScoped+
-* +@ConversationScoped+
-* +@RequestScoped+
+* +@javax.enterprise.context.ApplicationScoped+
+* +@javax.enterprise.context.SessionScoped+
+* +@javax.enterprise.context.ConversationScoped+
+* +@javax.enterprise.context.RequestScoped+
 
 There is no business process scope or method scope however, and +@RequestScoped+ 
-is essentially the same as +EVENT+ from Seam 2. CDI has one
-other scope which does not exist in Seam 2: +@Dependent+. This scope
+is essentially the same as +Event+ scope from Seam 2. CDI has one
+other scope which does not exist in Seam 2: +@javax.enterprise.context.Dependent+. This scope
 is similar in life as a typical Java object creation. It will last as long
 as the containing object survives. There's also one important difference,
 when injected, the inject object is the actual object not a proxy like the
@@ -520,7 +512,7 @@ composition, lack of being able to search for null fields, inability to perform
 joins, etc. Java EE 6 doesn't have anything ready to use to fill this gap.
 Fortunately a little creativity and the JPA Criteria API can go a long way.
 
-In this migration a base dao abstract class has been created to keep things DRY. A
+In this migration a base DAO - data access object - abstract class has been created to keep things http://en.wikipedia.org/wiki/Don%27t_repeat_yourself[DRY]. A
 similar approach could be done with composition, however, some of the type
 safety would be lost. This base class contains all of the functionality for the
 DAO, including a dynamic search similar to the Seam 2 Query search idea. The BaseDao class
@@ -755,13 +747,11 @@ will need to remain.
 The main changes, as listed above in the faces-config.xml are an update for the schema,
 the version and the removal of the view handler declaration.
 
-=== Migrate to RichFaces 4.2 ===
+=== Migrate to RichFaces 4.3 ===
 
 Migrating to JSF 2 also involves an update to the component library. Open18 made
 use of RichFaces. True JSF 2 support in RichFaces came out with version
-4.0.0.Final. Currently RichFaces 4.1.0.Final is out and 4.2.0.CR1 is also
-available. For many components the switch is change of JAR files, however, some
-components have not yet been migrated, or others have been combined. Information
+4.0.0.Final. Currently RichFaces 4.3.7.Final is out. For many components the switch is change of JAR files and some literal names changes or others have been combined. Information
 about component migration can be found on the https://community.jboss.org/wiki/RichFacesMigrationGuide33x-4xMigration[RichFaces wiki].
 
 === Rework Navigation from pages.xml ===
@@ -769,8 +759,7 @@ about component migration can be found on the https://community.jboss.org/wiki/R
 Two changes in JSF 2 which Seam influenced are in navigation. Navigation
 enhancements include implicit navigation and also conditional navigation,
 similar to conditions in pages.xml from Seam 2. These two features have been
-covered http://java.dzone.com/articles/fluent-navigation-jsf-2[in] http://mkblog.exadel.com/2009/09/learning-jsf2-navigation/[many]
-http://andyschwartz.wordpress.com/2009/07/31/whats-new-in-jsf-2/#navigation[places].
+covered in http://java.dzone.com/articles/fluent-navigation-jsf-2 or http://mkblog.exadel.com/2009/09/learning-jsf2-navigation/ and http://andyschwartz.wordpress.com/2009/07/31/whats-new-in-jsf-2/#navigation.
 While slightly more work in some cases, using a combination of these two
 features navigation from pages.xml should be fairly straight forward.
 
@@ -822,8 +811,8 @@ The first step for migrating these tags is to remove the seam namespace from the
 |+s:defaultAction+|No direct mapping
 |====================================================================
 
-// TODO: security
-// TODO: AuthenticationManager goes away and uses Shiro, need to figure out how to produce the current golfer The auth package goes away and uses Shiro, need to figure out what to do about captcha
+// TODO: security -> pure PicketLink vs DeltaSpike with PicketLink
+// TODO: AuthenticationManager goes away and uses Shiro, need to figure out how to produce the current golfer The auth package goes away and uses Apache Shiro http://shiro.apache.org/, need to figure out what to do about captcha
 
 == Further Information ==
 
